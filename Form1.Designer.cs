@@ -69,14 +69,10 @@
             this.Font = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.dgvResults = new System.Windows.Forms.DataGridView();
-            this.colFragment = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colLocation = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colDescription = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.txtOutput = new System.Windows.Forms.RichTextBox();
             this.label1 = new System.Windows.Forms.Label();
-            this.btnSearchLogins = new System.Windows.Forms.Button();
-            this.btnSearchNumbers = new System.Windows.Forms.Button();
-            this.btnSearchMoney = new System.Windows.Forms.Button();
+            this.colLocation = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colDescription = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.btnSize)).BeginInit();
@@ -214,6 +210,7 @@
             this.Start.Name = "Start";
             this.Start.Size = new System.Drawing.Size(55, 24);
             this.Start.Text = "Пуск";
+            this.Start.Click += new System.EventHandler(this.Start_Click_1);
             // 
             // Reference
             // 
@@ -374,6 +371,7 @@
             this.btnStart.Name = "btnStart";
             this.btnStart.Size = new System.Drawing.Size(29, 24);
             this.btnStart.Text = "Пуск";
+            this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
             // btnHelp
             // 
@@ -453,7 +451,6 @@
             this.dgvResults.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.dgvResults.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvResults.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.colFragment,
             this.colLocation,
             this.colDescription});
             this.dgvResults.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -463,24 +460,6 @@
             this.dgvResults.RowTemplate.Height = 24;
             this.dgvResults.Size = new System.Drawing.Size(1267, 328);
             this.dgvResults.TabIndex = 4;
-            // 
-            // colFragment
-            // 
-            this.colFragment.HeaderText = "Неверный фрагмент";
-            this.colFragment.MinimumWidth = 6;
-            this.colFragment.Name = "colFragment";
-            // 
-            // colLocation
-            // 
-            this.colLocation.HeaderText = "Местоположение";
-            this.colLocation.MinimumWidth = 6;
-            this.colLocation.Name = "colLocation";
-            // 
-            // colDescription
-            // 
-            this.colDescription.HeaderText = "Описание ошибки";
-            this.colDescription.MinimumWidth = 6;
-            this.colDescription.Name = "colDescription";
             // 
             // txtOutput
             // 
@@ -498,44 +477,23 @@
             this.label1.Size = new System.Drawing.Size(0, 16);
             this.label1.TabIndex = 9;
             // 
-            // btnSearchLogins
+            // colLocation
             // 
-            this.btnSearchLogins.Location = new System.Drawing.Point(705, 10);
-            this.btnSearchLogins.Name = "btnSearchLogins";
-            this.btnSearchLogins.Size = new System.Drawing.Size(75, 42);
-            this.btnSearchLogins.TabIndex = 10;
-            this.btnSearchLogins.Text = "Логин";
-            this.btnSearchLogins.UseVisualStyleBackColor = true;
-            this.btnSearchLogins.Click += new System.EventHandler(this.btnSearch_Click_3);
+            this.colLocation.HeaderText = "Местоположение";
+            this.colLocation.MinimumWidth = 6;
+            this.colLocation.Name = "colLocation";
             // 
-            // btnSearchNumbers
+            // colDescription
             // 
-            this.btnSearchNumbers.Location = new System.Drawing.Point(823, 10);
-            this.btnSearchNumbers.Name = "btnSearchNumbers";
-            this.btnSearchNumbers.Size = new System.Drawing.Size(75, 42);
-            this.btnSearchNumbers.TabIndex = 11;
-            this.btnSearchNumbers.Text = "Число";
-            this.btnSearchNumbers.UseVisualStyleBackColor = true;
-            this.btnSearchNumbers.Click += new System.EventHandler(this.btnSearchNumbers_Click_1);
-            // 
-            // btnSearchMoney
-            // 
-            this.btnSearchMoney.Location = new System.Drawing.Point(934, 7);
-            this.btnSearchMoney.Name = "btnSearchMoney";
-            this.btnSearchMoney.Size = new System.Drawing.Size(87, 45);
-            this.btnSearchMoney.TabIndex = 12;
-            this.btnSearchMoney.Text = "Денежные валюты";
-            this.btnSearchMoney.UseVisualStyleBackColor = true;
-            this.btnSearchMoney.Click += new System.EventHandler(this.btnSearchMoney_Click_1);
+            this.colDescription.HeaderText = "Описание ошибки";
+            this.colDescription.MinimumWidth = 6;
+            this.colDescription.Name = "colDescription";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1267, 562);
-            this.Controls.Add(this.btnSearchMoney);
-            this.Controls.Add(this.btnSearchNumbers);
-            this.Controls.Add(this.btnSearchLogins);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.Font);
@@ -601,13 +559,9 @@
         private System.Windows.Forms.ToolStripMenuItem menuRepeat;
         private System.Windows.Forms.RichTextBox txtOutput;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Button btnSearchLogins;
         private System.Windows.Forms.DataGridView dgvResults;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colFragment;
         private System.Windows.Forms.DataGridViewTextBoxColumn colLocation;
         private System.Windows.Forms.DataGridViewTextBoxColumn colDescription;
-        private System.Windows.Forms.Button btnSearchNumbers;
-        private System.Windows.Forms.Button btnSearchMoney;
     }
 }
 

@@ -1,8 +1,11 @@
-﻿using System;
+﻿
+using Microsoft.CSharp;
+using System;
+using System.CodeDom.Compiler;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace new2026
@@ -10,422 +13,157 @@ namespace new2026
     public partial class Form1 : Form
     {
         private string _currentFilePath = "";
-        private Color _highlightColor = Color.Yellow;
-        private int _currentHighlightStart = -1;
-        private int _currentHighlightLength = -1;
-        private Label lblMatchCount;
 
         public Form1()
         {
             InitializeComponent();
-            SetupDataGridView();
             txtInput.AllowDrop = true;
             txtInput.DragEnter += TxtInput_DragEnter;
             txtInput.DragDrop += TxtInput_DragDrop;
-            SetupMatchCountLabel();
-        }
-        private void SetupMatchCountLabel() 
-        {
-            lblMatchCount = new Label();
-            lblMatchCount.Text = "Найдено: 0";
-            this.Controls.Add(lblMatchCount);
-        }
-
-
-        private void SetupDataGridView()
-        {
-            dgvResults.Columns.Clear();
-            dgvResults.Columns.Add("MatchText", "Найденная подстрока");
-            dgvResults.Columns.Add("Position", "Позиция (строка, символ)");
-            dgvResults.Columns.Add("Length", "Длина");
-            dgvResults.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvResults.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvResults.ReadOnly = true;
             dgvResults.AllowUserToAddRows = false;
-            dgvResults.SelectionChanged += DgvResults_SelectionChanged;
+            dgvResults.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
+
+            dgvResults.CellClick += dgvResults_CellClick;
+
         }
 
-        private void SearchForLogins()
+        private bool AskToSave()
         {
-            try
+            if (string.IsNullOrWhiteSpace(txtInput.Text))
+                return true;
+
+            DialogResult result = MessageBox.Show(
+                "Сохранить изменения?",
+                "Подтверждение",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
             {
-                string text = txtInput.Text;
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    MessageBox.Show("Введите текст для поиска логинов.",
-                        "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                dgvResults.Rows.Clear();
-                RemoveHighlight();
-
-                string pattern = @"^[a-zA-Z][a-zA-Z0-9._-]*$";
-
-                string[] lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-                RegexOptions options = RegexOptions.None;
-                Regex regex = new Regex(pattern, options);
-
-                int matchCount = 0;
-
-                for (int lineNum = 0; lineNum < lines.Length; lineNum++)
-                {
-                    string line = lines[lineNum];
-
-                    if (regex.IsMatch(line))
-                    {
-                        matchCount++;
-                        int rowIndex = dgvResults.Rows.Add(
-                            line,
-                            $"{lineNum + 1}, 1",
-                            line.Length
-                        );
-
-                        int globalPosition = GetGlobalPosition(text, lineNum, 0);
-
-                        dgvResults.Rows[rowIndex].Tag = new MatchInfo
-                        {
-                            Index = globalPosition,
-                            Length = line.Length,
-                            Value = line
-                        };
-                    }
-                }
-
-                lblMatchCount.Text = $"Найдено логинов: {matchCount}";
-
-                if (matchCount == 0)
-                {
-                    lblMatchCount.ForeColor = Color.Red;
-                    MessageBox.Show("Корректных логинов не найдено.", "Результат поиска",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    lblMatchCount.ForeColor = Color.Green;
-                }
+                SaveButton();
+                return true;
             }
-            catch (Exception ex)
+            else if (result == DialogResult.No)
             {
-                MessageBox.Show($"Ошибка при поиске: {ex.Message}",
-                    "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                lblMatchCount.Text = "Ошибка поиска";
-                lblMatchCount.ForeColor = Color.Red;
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
-
-        private void SearchForNumbers()
-        {
-            try
-            {
-                string text = txtInput.Text;
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    MessageBox.Show("Введите текст для поиска чисел.",
-                        "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                dgvResults.Rows.Clear();
-                RemoveHighlight();
-
-                string pattern = @"[-+]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?";
-
-                RegexOptions options = RegexOptions.None;
-                Regex regex = new Regex(pattern, options);
-
-                MatchCollection matches = regex.Matches(text);
-                int matchCount = 0;
-
-                foreach (Match match in matches)
-                {
-                    if (!string.IsNullOrWhiteSpace(match.Value))
-                    {
-                        matchCount++;
-                        string position = GetLineAndColumnPosition(text, match.Index);
-
-                        int rowIndex = dgvResults.Rows.Add(
-                            match.Value,
-                            position,
-                            match.Length
-                        );
-
-                        dgvResults.Rows[rowIndex].Tag = new MatchInfo
-                        {
-                            Index = match.Index,
-                            Length = match.Length,
-                            Value = match.Value
-                        };
-                    }
-                }
-
-                lblMatchCount.Text = $"Найдено чисел: {matchCount}";
-
-                if (matchCount == 0)
-                {
-                    lblMatchCount.ForeColor = Color.Red;
-                    MessageBox.Show("Чисел не найдено.", "Результат поиска",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    lblMatchCount.ForeColor = Color.Green;
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка при поиске чисел: {ex.Message}",
-                    "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                lblMatchCount.Text = "Ошибка поиска";
-                lblMatchCount.ForeColor = Color.Red;
-            }
-        }
-
-        private void SearchForMoney()
-        {
-            try
-            {
-                string text = txtInput.Text;
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    MessageBox.Show("Введите текст для поиска денежных сумм.",
-                        "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                dgvResults.Rows.Clear();
-                RemoveHighlight();
-
-                string[] lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-                string fullLinePattern = @"^(?:USD|EUR|RUB|GBP|JPY|CNY)\s*(?:[+-]?\d+(?:[.,]\d+)?)$|^(?:[$€£¥₽])\s*(?:[+-]?\d+(?:[.,]\d+)?)$|^(?:[+-]?\d+(?:[.,]\d+)?)\s*(?:USD|EUR|RUB|GBP|JPY|CNY)$|^(?:[+-]?\d+(?:[.,]\d+)?)\s*(?:[$€£¥₽])$";
-
-                Regex regex = new Regex(fullLinePattern);
-                int matchCount = 0;
-
-                for (int lineNum = 0; lineNum < lines.Length; lineNum++)
-                {
-                    string line = lines[lineNum].Trim();
-
-                    if (regex.IsMatch(line))
-                    {
-                        matchCount++;
-                        int globalPosition = GetGlobalPosition(text, lineNum, 0);
-
-                        int rowIndex = dgvResults.Rows.Add(
-                            line,
-                            $"{lineNum + 1}, 1",
-                            line.Length
-                        );
-
-                        dgvResults.Rows[rowIndex].Tag = new MatchInfo
-                        {
-                            Index = globalPosition,
-                            Length = line.Length,
-                            Value = line
-                        };
-                    }
-                }
-
-                lblMatchCount.Text = $"Найдено денежных сумм: {matchCount}";
-                lblMatchCount.ForeColor = matchCount == 0 ? Color.Red : Color.Green;
-
-                if (matchCount == 0)
-                {
-                    MessageBox.Show("Денежных сумм не найдено.", "Результат поиска",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка при поиске денежных сумм: {ex.Message}",
-                    "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                lblMatchCount.Text = "Ошибка поиска";
-                lblMatchCount.ForeColor = Color.Red;
-            }
-        }
-
-        private int GetGlobalPosition(string text, int lineNumber, int columnNumber)
-        {
-            string[] lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            int position = 0;
-
-            for (int i = 0; i < lineNumber && i < lines.Length; i++)
-            {
-                position += lines[i].Length + Environment.NewLine.Length;
-            }
-
-            position += columnNumber;
-            return position;
-        }
-
-        private string GetLineAndColumnPosition(string text, int index)
-        {
-            int line = 1;
-            int column = 1;
-
-            for (int i = 0; i < index && i < text.Length; i++)
-            {
-                if (text[i] == '\n')
-                {
-                    line++;
-                    column = 1;
-                }
-                else if (text[i] != '\r')
-                {
-                    column++;
-                }
-            }
-
-            return $"{line}, {column}";
-        }
-
-        private void HighlightMatch(int startIndex, int length)
-        {
-            try
-            {
-                if (startIndex < 0 || length <= 0 || startIndex + length > txtInput.Text.Length)
-                    return;
-
-                RemoveHighlight();
-
-                txtInput.Focus();
-                txtInput.Select(startIndex, length);
-                txtInput.SelectionBackColor = _highlightColor;
-
-                _currentHighlightStart = startIndex;
-                _currentHighlightLength = length;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка подсветки: {ex.Message}");
-            }
-        }
-
-        private void RemoveHighlight()
-        {
-            if (_currentHighlightStart >= 0 && _currentHighlightLength > 0)
-            {
-                txtInput.Select(_currentHighlightStart, _currentHighlightLength);
-                txtInput.SelectionBackColor = Color.White;
-                txtInput.SelectionLength = 0;
-                _currentHighlightStart = -1;
-                _currentHighlightLength = -1;
-            }
-        }
-
-        private void DgvResults_SelectionChanged(object sender, EventArgs e)
-        {
-            if (dgvResults.SelectedRows.Count > 0)
-            {
-                MatchInfo matchInfo = dgvResults.SelectedRows[0].Tag as MatchInfo;
-                if (matchInfo != null)
-                {
-                    HighlightMatch(matchInfo.Index, matchInfo.Length);
-                }
-            }
-        }
-
-        private class MatchInfo
-        {
-            public int Index { get; set; }
-            public int Length { get; set; }
-            public string Value { get; set; }
-        }
-
         private void StartButton()
         {
-            txtOutput.Text = "";
+            dgvResults.Rows.Clear();
+            string input = txtInput.Text;
 
-            try
+            if (string.IsNullOrWhiteSpace(input))
             {
-                string code = txtInput.Text;
+                dgvResults.Rows.Add("", "Введите код для анализа");
+                return;
+            }
 
-                if (code.Contains("Main") == false)
+            var tokens = Lexer.Tokenize(input);
+            Parser parser = new Parser(tokens);
+            AstNode ast = parser.Parse();
+
+            foreach (var err in parser.Errors)
+            {
+                dgvResults.Rows.Add($"строка {err.Line}, позиция {err.Position}", err.Description);
+            }
+
+            string astOutput = null;
+
+            if (parser.Errors.Count == 0 && ast != null)
+            {
+                var semanticAnalyzer = new SemanticAnalyzer();
+                var validatedAst = semanticAnalyzer.Analyze(ast);
+
+                var sortedErrors = semanticAnalyzer.Errors
+                    .OrderBy(err => err.Line)
+                    .ThenBy(err => err.Column)
+                    .ToList();
+
+                if (validatedAst is BlockNode block && block.Statements.Count > 0)
                 {
-                    code = "using System;\n";
-                    code = code + "class Program\n";
-                    code = code + "{\n";
-                    code = code + "    static void Main()\n";
-                    code = code + "    {\n";
-                    code = code + "        " + txtInput.Text + "\n";
-                    code = code + "    }\n";
-                    code = code + "}\n";
+                    astOutput = "AST (синтаксическое дерево)\n\n";
+
+                    for (int i = 0; i < block.Statements.Count; i++)
+                    {
+                        var stmt = block.Statements[i];
+
+                        bool hasErrorForThisStmt = false;
+
+                        if (stmt is AssignNode assignStmt)
+                        {
+                            foreach (var err in sortedErrors)
+                            {
+                                if (err.Line == assignStmt.Line && err.Column == assignStmt.Column)
+                                {
+                                    hasErrorForThisStmt = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!hasErrorForThisStmt)
+                        {
+                            astOutput += $"--- Строка {stmt.Line} ---\n";
+                            astOutput += stmt.ToTree();
+                            astOutput += "\n";
+                        }
+                    }
                 }
 
-                Microsoft.CSharp.CSharpCodeProvider compiler = new Microsoft.CSharp.CSharpCodeProvider();
-
-                System.CodeDom.Compiler.CompilerParameters parameters = new System.CodeDom.Compiler.CompilerParameters();
-                parameters.GenerateExecutable = true;
-                parameters.GenerateInMemory = true;
-                parameters.ReferencedAssemblies.Add("System.dll");
-
-                System.CodeDom.Compiler.CompilerResults results = compiler.CompileAssemblyFromSource(parameters, code);
-
-                if (results.Errors.Count > 0)
+                foreach (var err in sortedErrors)
                 {
-                    foreach (System.CodeDom.Compiler.CompilerError error in results.Errors)
-                    {
-                        txtOutput.Text = txtOutput.Text + "Ошибка: " + error.ErrorText + "\n";
-                    }
+                    dgvResults.Rows.Add($"строка {err.Line}, позиция {err.Column}", err.Message);
+                }
+
+                if (semanticAnalyzer.Errors.Count == 0)
+                {
+                    dgvResults.Rows.Add("", "Семантических ошибок не найдено");
                 }
                 else
                 {
-                    MethodInfo mainMethod = results.CompiledAssembly.EntryPoint;
-
-                    if (mainMethod != null)
-                    {
-                        StringWriter writer = new StringWriter();
-                        TextWriter oldOutput = Console.Out;
-                        Console.SetOut(writer);
-
-                        try
-                        {
-                            mainMethod.Invoke(null, null);
-                            string output = writer.ToString();
-                            txtOutput.Text = output;
-                        }
-                        catch (Exception ex)
-                        {
-                            txtOutput.Text = "Ошибка: " + ex.Message;
-                        }
-                        finally
-                        {
-                            Console.SetOut(oldOutput);
-                        }
-                    }
+                    dgvResults.Rows.Add("", $"Всего семантических ошибок: {semanticAnalyzer.Errors.Count}");
                 }
             }
-            catch (Exception ex)
+            else if (parser.Errors.Count > 0)
             {
-                txtOutput.Text = "Ошибка: " + ex.Message;
+                dgvResults.Rows.Add("", $"Всего синтаксических ошибок: {parser.Errors.Count}");
+            }
+
+            if (!string.IsNullOrEmpty(astOutput))
+            {
+                MessageBox.Show(astOutput, "Абстрактное синтаксическое дерево (AST)",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
-
         private void OpenButton()
         {
+            if (!AskToSave())
+                return;
+
             OpenFileDialog openFile = new OpenFileDialog();
             openFile.Filter = "Text Files (*.txt)|*.txt|All files (*.*)|*.*";
-
             if (openFile.ShowDialog() == DialogResult.OK)
             {
                 txtInput.Text = System.IO.File.ReadAllText(openFile.FileName);
                 _currentFilePath = openFile.FileName;
+
             }
         }
-
         private void AddButton()
         {
-            txtInput.Text = "";
-            dgvResults.Rows.Clear();
-            lblMatchCount.Text = "Найдено: 0";
-            RemoveHighlight();
+            if (AskToSave())
+            {
+                txtInput.Text = "";
+                _currentFilePath = "";
+            }
         }
-
         private void SaveButton()
         {
             if (string.IsNullOrEmpty(_currentFilePath))
@@ -445,7 +183,6 @@ namespace new2026
                 }
             }
         }
-
         private void SaveAsButton()
         {
             SaveFileDialog saveFile = new SaveFileDialog();
@@ -457,7 +194,6 @@ namespace new2026
                 _currentFilePath = saveFile.FileName;
             }
         }
-
         private void CopyButton()
         {
             if (txtInput.SelectedText != "")
@@ -465,7 +201,6 @@ namespace new2026
                 Clipboard.SetText(txtInput.SelectedText);
             }
         }
-
         private void InsertButton()
         {
             if (Clipboard.ContainsText())
@@ -473,15 +208,17 @@ namespace new2026
                 txtInput.Text = txtInput.Text + Clipboard.GetText();
             }
         }
-
         private void CutButton()
         {
             if (txtInput.SelectedText != "")
             {
                 Clipboard.SetText(txtInput.SelectedText);
+
                 int selectionStart = txtInput.SelectionStart;
                 int selectionLength = txtInput.SelectionLength;
+
                 txtInput.Text = txtInput.Text.Remove(selectionStart, selectionLength);
+
                 txtInput.SelectionStart = selectionStart;
             }
         }
@@ -493,7 +230,6 @@ namespace new2026
                 txtInput.Undo();
             }
         }
-
         private void RepeatButton()
         {
             if (txtInput.CanRedo)
@@ -501,6 +237,8 @@ namespace new2026
                 txtInput.Redo();
             }
         }
+
+
         private void StartButton_Click(object sender, EventArgs e)
         {
             StartButton();
@@ -557,7 +295,6 @@ namespace new2026
             txtInput.Font = new Font(txtInput.Font.FontFamily, newSize, txtInput.Font.Style);
             txtOutput.Font = new Font(txtOutput.Font.FontFamily, newSize, txtOutput.Font.Style);
         }
-
         private void TxtInput_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -568,14 +305,7 @@ namespace new2026
         {
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             if (files.Length > 0)
-            {
                 txtInput.Text = System.IO.File.ReadAllText(files[0]);
-            }
-        }
-
-        private void btnSearch_Click_3(object sender, EventArgs e)
-        {
-            SearchForLogins();
         }
 
         private void btnEnglish_Click(object sender, EventArgs e)
@@ -609,9 +339,6 @@ namespace new2026
             menuAbout.Text = "About program";
             Language.Text = "Language";
             Font.Text = "Font size";
-
-            if (lblMatchCount != null)
-                lblMatchCount.Text = $"Found: {int.Parse(lblMatchCount.Text.Split(':')[1].Trim())}";
         }
 
         private void btnRussian_Click(object sender, EventArgs e)
@@ -645,6 +372,9 @@ namespace new2026
             menuAbout.Text = "О программе";
             Language.Text = "Язык";
             Font.Text = "Размер шрифта";
+
+
+
         }
 
         private void menuAdd_Click(object sender, EventArgs e)
@@ -701,9 +431,6 @@ namespace new2026
         private void menuDeleteAll_Click(object sender, EventArgs e)
         {
             txtInput.Text = "";
-            dgvResults.Rows.Clear();
-            lblMatchCount.Text = "Найдено: 0";
-            RemoveHighlight();
         }
 
         private void Start_Click(object sender, EventArgs e)
@@ -711,13 +438,40 @@ namespace new2026
             StartButton();
         }
 
+        private void menuReference_Click_1(object sender, EventArgs e)
+        {
+            string helpText =
+                "Описание функций приложения\n" +
+
+                "Основные функции компилятора:\n" +
+                "- Запуск кода - компилирует и выполняет код\n" +
+                "- Автоматическое добавление структуры класса\n\n" +
+
+                "Работа с файлами:\n" +
+                "- Создать - очищает поле ввода\n" +
+                "- Открыть - загружает код из текстового файла\n" +
+                "- Сохранить - сохраняет код в файл\n\n" +
+
+                "Редактирование текста:\n" +
+                "- Отменить/Повторить - отмена/повтор действий\n" +
+                "- Вырезать/Копировать/Вставить - работа с буфером\n" +
+                "- Удалить/Удалить все - удаление текста\n\n" +
+
+                "Дополнительно:\n" +
+                "- Изменение размера шрифта\n" +
+                "- Смена языка интерфейса";
+
+            MessageBox.Show(helpText, "Справка по функциям",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             DialogResult result = MessageBox.Show(
-                "Вы действительно хотите выйти из приложения?",
-                "Подтверждение выхода",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+        "Вы действительно хотите выйти из приложения?",
+        "Подтверждение выхода",
+        MessageBoxButtons.YesNo,
+        MessageBoxIcon.Question);
 
             if (result == DialogResult.No)
             {
@@ -729,15 +483,67 @@ namespace new2026
         {
             SaveButton();
         }
-
-        private void btnSearchNumbers_Click_1(object sender, EventArgs e)
+        private void dgvResults_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            SearchForNumbers();
+            if (e.RowIndex < 0) return;
+
+            string loc = dgvResults.Rows[e.RowIndex].Cells[0].Value?.ToString();
+
+            if (string.IsNullOrEmpty(loc) || loc.Contains("Всего ошибок") || loc.Contains("не найдено"))
+            {
+                return;
+            }
+
+            try
+            {
+                var parts = loc.Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length >= 4 && parts[0] == "строка" && parts[2] == "позиция")
+                {
+                    int line = int.Parse(parts[1]);
+                    int pos = int.Parse(parts[3]);
+
+                    int index = GetIndex(line, pos);
+
+                    txtInput.Focus();
+                    txtInput.SelectionStart = index;
+                    txtInput.SelectionLength = 1;
+                }
+            }
+            catch
+            {
+            }
         }
 
-        private void btnSearchMoney_Click_1(object sender, EventArgs e)
+        private int GetIndex(int line, int pos)
         {
-            SearchForMoney();
+            int currentLine = 1;
+            int index = 0;
+
+            foreach (char c in txtInput.Text)
+            {
+                if (currentLine == line)
+                    break;
+
+                if (c == '\n')
+                    currentLine++;
+
+                index++;
+            }
+
+            return index + pos - 1;
+        }
+
+
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+            StartButton();
+        }
+
+        private void Start_Click_1(object sender, EventArgs e)
+        {
+            StartButton();
         }
     }
+
 }
